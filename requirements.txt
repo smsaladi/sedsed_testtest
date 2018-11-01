@@ -1,0 +1,8 @@
+gunicorn
+gevent
+
+flask
+flask-socketio
+gevent-websocket
+
+sedsed
