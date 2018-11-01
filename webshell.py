@@ -1,57 +1,23 @@
 #!/usr/bin/env python
 
+"""
+A webshell modified to only interact with sedsed
+
+Intially based on the code here:
+https://gist.github.com/phoemur/461c97aa5af5c785062b7b4db8ca79cd
+
+Author: Shyam Saladi (smsaladi@gmail.com)
+Date: November 2018
+"""
+
+import os
 import subprocess
 from flask import Flask, render_template
 from flask_socketio import SocketIO, send, emit
 
-HTML = '''
-<html>
-    <head>
-        <title>WEBSHELL</title>
-        <script type="text/javascript" src="//code.jquery.com/jquery-3.2.1.min.js"></script>
-        <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/1.3.6/socket.io.min.js"></script>
-        <script type="text/javascript" charset="utf-8">
-            var socket;
-            $(document).ready(function(){
-                socket = io.connect('http://' + document.domain + ':' + location.port + '/shell');
-                socket.on('connect', function() {
-                    socket.emit('joined', {});
-                });
-                socket.on('message', function(data) {
-                    $('#shell').val($('#shell').val() + data.msg + '\n');
-                    $('#shell').scrollTop($('#shell')[0].scrollHeight);
-                });
-                socket.on('status', function(data) {
-                    $('#shell').val($('#shell').val() + '<' + data.msg + '>\n');
-                    $('#shell').scrollTop($('#shell')[0].scrollHeight);
-                });
-                $('#text').keypress(function(e) {
-                    var code = e.keyCode || e.which;
-                    if (code == 13) {
-                        text = $('#text').val();
-                        $('#text').val('');
-                        socket.emit('comando', {msg: text});
-                    }
-                });
-            });
-            function leave_room() {
-                socket.disconnect();
-                window.location.href = "http://www.google.com";
-            }
-        </script>
-    </head>
-    <body>
-        <h1>WEBSHELL</h1>
-        <textarea id="shell" cols="80" rows="20"></textarea><br><br>
-        <input id="text" size="80" placeholder="Digite o comando"><br><br>
-        <a href="#" onclick="leave_room();">Sair</a>
-    </body>
-</html>
-'''
-
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'top secret'
-app.config['DEBUG'] = True
+app.config['SECRET_KEY'] = os.environ['SECRET_KEY']
+app.config['DEBUG'] = bool(os.environ['SECRET_KEY'])
 socketio = SocketIO(app)
 
 @app.route('/')
@@ -60,19 +26,31 @@ def index():
 
 @socketio.on('joined', namespace='/shell')
 def joined(message):
-    emit('status', {'msg': 'CONECTADO COM SUCESSO'})
+    send_status('SUCCESSFULLY CONNECTED')
     
 @socketio.on('comando', namespace='/shell')
 def comando(comando):
     c = comando['msg']
-    emit('message', {'msg': '$ ' + c})
+    send_text('$ ' + c)
     print(c)
+
+    if not c.startswith('sed'):
+        c = c + 'sed'
+        send_text("Don't forget to include sed!")
+        send_text("Trying: " + c)
+
     try:
         b = subprocess.check_output(c, shell=True).decode()
     except Exception as err:
         b = str(err)
         
-    emit('message', {'msg': b})
+    send_text(b)
+
+def send_status(msg):
+    emit('status', {'msg': msg})
+
+def send_text(msg):
+    emit('message', {'msg': msg})
     
 if __name__ == '__main__':
     socketio.run(app)
