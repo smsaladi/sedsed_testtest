@@ -1,7 +1,7 @@
 var socket;
 
 $(document).ready(function() {
-    socket = io.connect('http://' + document.domain + ':' + location.port + '/shell');
+    socket = io.connect('//' + document.domain + ':' + location.port + '/shell', {secure: true});
     socket.on('connect', function() {
         socket.emit('joined', {});
     });
